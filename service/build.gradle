@@ -1,0 +1,21 @@
+dependencies {
+    compile project(":commons")
+
+    compile "io.ktor:ktor-server-netty:1.3.2"
+    compile 'com.github.papsign:Ktor-OpenAPI-Generator:0.2-beta.10'
+}
+
+jar {
+    manifest {
+        attributes(
+                'Class-Path': configurations.compile.collect { it.getName() }.join(' '),
+                'Main-Class': 'eu.miaplatform.service.ServiceApplicationKt'
+        )
+    }
+
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    archiveFileName = 'application.jar'
+}
