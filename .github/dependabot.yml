@@ -1,0 +1,16 @@
+version: 2
+updates:
+- package-ecosystem: gradle
+  directory: "/"
+  schedule:
+    interval: daily
+    time: "04:00"
+  open-pull-requests-limit: 10
+  target-branch: development
+  ignore:
+  - dependency-name: org.jetbrains.kotlinx:kotlinx-coroutines-core
+    versions:
+    - 1.4.2-native-mt
+  - dependency-name: org.jetbrains.kotlin.jvm
+    versions:
+    - 1.4.21-2
