@@ -60,7 +60,7 @@ structure as you prefer.
 
 ## Add a Welcome route
 
-Add inside this folder [directory](https://github.com/mia-platform-marketplace/Ktor-Multi-Module-Template/tree/master/src/main/kotlin/eu/miaplatform/service/controller) a file named **HelloWorld.kt** with the following content:
+Add inside this folder [directory](https://github.com/mia-platform-marketplace/Ktor-Multi-Module-Template/tree/master/src/main/kotlin/eu/miaplatform/service/applications) a file named **HelloWorldApplication.kt** with the following content:
 
 ```kotlin
 package eu.miaplatform.service.controller
@@ -80,46 +80,38 @@ data class HelloWorldResponse (
     val message: String
 )
 
-fun helloWorld(application: Application) {
+data class HelloWorldGetRequest (
+    @QueryParam("Description of the query param")
+    val queryParam: String?
+)
 
-    application.apiRouting {
-        route("/") {
+class HelloWorldApplication: CustomApiApplication {
+
+    override fun install(apiRouting: NormalOpenAPIRoute): Unit = apiRouting.run {
+        route("/hello") {
             tag(ServiceTag) {
-                get<Unit, HelloWorldResponse>(
+                get<HelloWorldGetRequest, HelloWorldResponse>(
                     info("The description of the endpoint")
                 ) { params ->
-                    var response = HelloWorldResponse("Hello world!")
-                    respond(response)
+                    respond(
+                        HelloWorldResponse(
+                            null,
+                            params.queryParam,
+                            "Hello world!"
+                        )
+                    )
                 }
             }
         }
     }
 }
 ```
+This class can be added to your ktor engine by calling `install(yourHelloWorldApplication)` inside your main module.
 
-In line `respond(HelloWorldResponse("Hello world!"))` you are creating an instance of a class called HelloWorld. 
-
-As you can notice we are not using the original ktor `routing` but the `apiRouting` that permits you to construct 
-automatically the `open-api.json`.`
+By implementing the `CustomApiApplication` interface you are automatically creating documented routes retrievable 
+calling the `/documentation` endpoint.
 
 For more details about how to use the `apiRouting see https://github.com/papsign/Ktor-OpenAPI-Generator
-
-You have to import this file in the [file](https://github.com/mia-platform-marketplace/Ktor-Multi-Module-Template/tree/master/src/main/kotlin/eu/miaplatform/service/ServiceApplication.kt) inside the `apiRouting` installation. 
-
-```kotlin
-import eu.miaplatform.service.controller.helloWorld
-
-...
-    ...
-    apiRouting {
-        //here goes your controller
-        helloWorld(this@module)
-    }
-    ...
-
-```
-
-In this file you can see the instantiation of the library that creates the swaggers reachable at the endpoint `/documentation`.
 
 After committing these changes to your repository, you can go back to Mia Platform DevOps Console.  
 Go to the **Deploy** area of the DevOps Console and deploy your project in a similar way to what you have done before modifying your git repository.
