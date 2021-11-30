@@ -1,74 +1,61 @@
 package eu.miaplatform.service
 
 import ch.qos.logback.classic.util.ContextInitializer
-import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.exc.InvalidFormatException
 import com.fasterxml.jackson.module.kotlin.MissingKotlinParameterException
 import com.papsign.ktor.openapigen.OpenAPIGen
 import com.papsign.ktor.openapigen.interop.withAPI
-import com.papsign.ktor.openapigen.route.apiRouting
 import com.papsign.ktor.openapigen.schema.builder.provider.DefaultObjectSchemaProvider
 import com.papsign.ktor.openapigen.schema.namer.DefaultSchemaNamer
 import com.papsign.ktor.openapigen.schema.namer.SchemaNamer
+import eu.miaplatform.commons.Serialization
 import eu.miaplatform.commons.StatusService
+import eu.miaplatform.commons.ktor.install
 import eu.miaplatform.commons.model.BadRequestException
 import eu.miaplatform.commons.model.InternalServerErrorException
 import eu.miaplatform.commons.model.NotFoundException
 import eu.miaplatform.commons.model.UnauthorizedException
-import eu.miaplatform.service.controller.documentation
-import eu.miaplatform.service.controller.health
+import eu.miaplatform.service.applications.DocumentationApplication
+import eu.miaplatform.service.applications.HealthApplication
+import eu.miaplatform.service.core.openapi.CustomJacksonObjectSchemaProvider
 import eu.miaplatform.service.model.ErrorResponse
 import io.ktor.application.*
 import io.ktor.features.*
 import io.ktor.http.*
 import io.ktor.jackson.*
 import io.ktor.request.*
-import io.ktor.routing.*
 import io.ktor.server.netty.*
-import io.ktor.util.*
 import okhttp3.logging.HttpLoggingInterceptor
 import org.slf4j.event.Level
 import java.lang.reflect.InvocationTargetException
-import java.util.*
 import kotlin.reflect.KType
 
 fun main(args: Array<String>) {
     System.setProperty(ContextInitializer.CONFIG_FILE_PROPERTY, System.getenv("LOG_CONFIG_FILE"))
-    val timeZone = System.getenv("TIME_ZONE")
-    if(timeZone != null) {
-        TimeZone.setDefault(TimeZone.getTimeZone(timeZone))
-    }
     EngineMain.main(args)
 }
 
-@KtorExperimentalAPI
 fun Application.module() {
 
-    val logLevel = when (environment.config.property("ktor.log.level").getString().toUpperCase()) {
-        "DEBUG" -> Level.DEBUG
-        "ERROR" -> Level.ERROR
-        "TRACE" -> Level.TRACE
-        "WARN" -> Level.WARN
-        else -> Level.INFO
-    }
-
-    val httpLogLevel = when (environment.config.property("ktor.log.httpLogLevel").getString().toUpperCase()) {
+    val httpLogLevel = when (environment.config.property("ktor.log.httpLogLevel").getString().uppercase()) {
         "BASIC" -> HttpLoggingInterceptor.Level.BASIC
         "BODY" -> HttpLoggingInterceptor.Level.BODY
         "HEADERS" -> HttpLoggingInterceptor.Level.HEADERS
         else -> HttpLoggingInterceptor.Level.NONE
     }
 
-    module(logLevel)
+    baseModule()
+    install(DocumentationApplication())
+    install(HealthApplication())
 }
 
-@KtorExperimentalAPI
-fun Application.module(
-    logLevel: Level
-) {
 
+/**
+ * Install common functionalities like open api, logging, metrics, serialization, etc. for this application.
+ */
+fun Application.baseModule() {
     install(CallLogging) {
-        level = logLevel
+        level = Level.INFO
         filter { call -> call.request.path().startsWith("/") }
     }
 
@@ -127,22 +114,12 @@ fun Application.module(
             exception<Exception, ErrorResponse>(HttpStatusCode.InternalServerError) {
                 ErrorResponse(1000, it.localizedMessage ?: "Generic error")
             }
-
         }
     }
 
     install(ContentNegotiation) {
         jackson {
-            this.setSerializationInclusion(JsonInclude.Include.NON_NULL)
+            Serialization.apply { defaultKtorLiteral() }
         }
-    }
-
-    apiRouting {
-        //here goes your controller
-    }
-
-    routing {
-        health()
-        documentation(this.application)
     }
 }

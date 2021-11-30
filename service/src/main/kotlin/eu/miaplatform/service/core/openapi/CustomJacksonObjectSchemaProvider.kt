@@ -1,4 +1,4 @@
-package eu.miaplatform.service
+package eu.miaplatform.service.core.openapi
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.papsign.ktor.openapigen.*
@@ -37,9 +37,7 @@ object CustomJacksonObjectSchemaProvider : SchemaBuilderProviderModule, OpenAPIG
     }
 
     private class Builder(private val apiGen: OpenAPIGen, private val namer: SchemaNamer) : SchemaBuilder {
-        @ExperimentalStdlibApi
-        internal inline fun <reified T> getKType() = typeOf<T>()
-        @ExperimentalStdlibApi
+        inline fun <reified T> getKType() = typeOf<T>()
         override val superType: KType = getKType<Any?>()
 
         private val refs = HashMap<KType, SchemaModel.SchemaModelRef<*>>()
@@ -48,7 +46,7 @@ object CustomJacksonObjectSchemaProvider : SchemaBuilderProviderModule, OpenAPIG
             checkType(type)
             val nonNullType = type.withNullability(false)
             type.annotations.find { it.annotationClass == KType::class }
-            return refs[nonNullType] ?: {
+            return refs[nonNullType] ?: run {
                 val erasure = nonNullType.jvmErasure
                 val name = namer[nonNullType]
                 val ref = SchemaModel.SchemaModelRef<Any?>("#/components/schemas/$name")
@@ -57,16 +55,18 @@ object CustomJacksonObjectSchemaProvider : SchemaBuilderProviderModule, OpenAPIG
                     SchemaModel.OneSchemaModelOf(erasure.sealedSubclasses.map { builder.build(it.starProjectedType) })
                 } else {
                     val props = type.memberProperties.filter { it.source.visibility == KVisibility.PUBLIC }
-                    SchemaModel.SchemaModelObj<Any?>(
+                    SchemaModel.SchemaModelObj(
                         props.associate {
-                            val annotation = it.source.getter.annotations.find { type -> type is JsonProperty } as? JsonProperty
+                            val annotation =
+                                it.source.getter.annotations.find { type -> type is JsonProperty } as? JsonProperty
                             val propertyName = annotation?.value ?: it.name
                             Pair(propertyName, builder.build(it.type, it.source.annotations))
                         },
                         props.filter {
                             !it.type.isMarkedNullable
                         }.map {
-                            val annotation = it.source.getter.annotations.find { type -> type is JsonProperty } as? JsonProperty
+                            val annotation =
+                                it.source.getter.annotations.find { type -> type is JsonProperty } as? JsonProperty
                             annotation?.value ?: it.name
                         }
                     )
@@ -76,7 +76,7 @@ object CustomJacksonObjectSchemaProvider : SchemaBuilderProviderModule, OpenAPIG
                 if (existing != null && existing != final) log.error("Schema with name $name already exists, and is not the same as the new one, replacing...")
                 apiGen.api.components.schemas[name] = final
                 ref
-            }()
+            }
         }
     }
 }
